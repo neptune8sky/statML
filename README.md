@@ -6,7 +6,7 @@ Below you will find an index of the models implemented in this repository, compl
 
 | Model Name               | Category              | Python Code                                  | Julia Code                                   |
 |--------------------------|-----------------------|----------------------------------------------|----------------------------------------------|
-| k-Nearest Neighbors      | Classification        | [🐍](https://github.com/neptune8sky/statML/blob/main/kNN_classifier.py) | [📊](https://github.com/neptune8sky/statML/blob/main/kNN_classifier.jl) |
+| k-Nearest Neighbors      | Classification        | ❌ | [📊](https://github.com/neptune8sky/statML/blob/main/kNN_classifier.jl) |
 | Linear Least Squares     | Regression            | ❌ | ❌ |
 | Ridge Regression         | Regression            | ❌ | ❌ |
 | Lasso                    | Regression            | ❌ | ❌ |
@@ -15,7 +15,7 @@ Below you will find an index of the models implemented in this repository, compl
 | Boosting                 | Ensemble Methods      | ❌ | ❌ |
 | Gradient Boosting        | Ensemble Methods      | ❌ | ❌ |
 | Principal Component Analysis (PCA) | Dimensionality Reduction | ❌ | ❌ |
-| Kernel PCA               | Dimensionality Reduction | ❌ |
+| Kernel PCA               | Dimensionality Reduction | ❌ | ❌ | 
 | Multiple Discriminant Analysis (MDA) | Dimensionality Reduction | ❌ |  ❌ |
 | Isomap                   | Manifold Learning     | ❌ |  ❌ |
 | t-Distributed Stochastic Neighbor Embedding (t-SNE) | Manifold Learning | ❌ | ❌ |
