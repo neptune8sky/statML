@@ -4,11 +4,24 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ af484490-0556-11ef-3473-830020f112d0
 using PlutoUI, Plots, MLJ, DataFrames
 
 # ╔═╡ f5f3d536-3115-4e2b-a678-93eca744416e
 using NearestNeighborModels
+
+# ╔═╡ 1cb3093e-0727-46b7-8cef-c796a02720ab
+using Random, Distributions, LaTeXStrings, CategoricalArrays
 
 # ╔═╡ 1a59eb2b-b0cb-4825-901b-ac9fca93f91a
 md"# k-nearest neighbors"
@@ -19,6 +32,9 @@ begin
 	iris = DataFrame(data)
 	y, X = unpack(iris, ==(:target); rng=123);
 end
+
+# ╔═╡ 34551733-2494-43aa-af6c-dd25f256ea3f
+y
 
 # ╔═╡ 5c51d465-e64f-4260-bfcb-75733184a948
 train, test = partition(eachindex(y), 0.7)
@@ -65,21 +81,123 @@ begin
 		loss = ZeroOneLoss(one_hot_encode.(y_test), one_hot_encode.(ŷ_test, typ="pred"))
 		losses[i] = loss
 	end
-	scatter(neighbors_range, losses, title = "0-1-loss for kNN classifier", xlabel = L"n", ylabel = "number of missclassifications", xticks = 0:10:79, label = "", color="#B4C5E4")
-	plot!(neighbors_range, losses, title = "0-1-loss for kNN classifier", xlabel = "number of neighbors", ylabel = "number of missclassifications", xticks = 0:10:79, label = "", color="#B97375", lw = 4)
+	scatter(neighbors_range, losses, title = "0-1-loss for kNN classifier", xlabel = "n", ylabel = "number of missclassifications", xticks = 0:10:79, label = "", color="#B4C5E4")
+	plot!(neighbors_range, losses, label = "", color="#B97375", lw = 4)
+end
+
+# ╔═╡ 2c21266f-7438-4706-a5ae-99c8c9680185
+begin
+	num = @bind N Slider(10:10:10000, show_value=true);
+	mean_x_1 = @bind μ_x_1 Slider(-5:0.1:5, show_value=true);
+	mean_y_1 = @bind μ_y_1 Slider(-5:0.1:5, show_value=true);
+	mean_x_2 = @bind μ_x_2 Slider(-5:0.1:5, show_value=true);
+	mean_y_2 = @bind μ_y_2 Slider(-5:0.1:5, show_value=true);
+end;
+
+# ╔═╡ 3b224c48-93f9-46c3-b4ff-bf089250ef8f
+begin
+	mean_1 = [μ_x_1, μ_y_1]  # Mean of the Gaussian distribution
+	cov_1 = [1 0; 0 1]   # Covariance matrix
+	dist_1 = MvNormal(mean_1, cov_1) # Multivariate normal distribution
+
+	mean_2 = [μ_x_2, μ_y_2]  
+	cov_2 = [1 0; 0 1] 
+	dist_2 = MvNormal(mean_2, cov_2) 
+end
+
+# ╔═╡ ac58bae2-2946-4462-890f-3c182f6ec56f
+md"
+### Gaussian data parameters:
+- Number of samples: $num
+- mean $μ_x$ for $N_1$: $mean_x_1
+- mean $μ_y$ for $N_1$: $mean_y_1
+- mean $μ_x$ for $N_2$: $mean_x_2
+- mean $μ_y$ for $N_2$: $mean_y_2
+"
+
+# ╔═╡ ca891290-d07f-4bde-9388-4a08c2096787
+begin
+	Random.seed!(1234) 	
+	Y_1 = rand(dist_1, N)
+	Y_2 = rand(dist_2, N)
+	scatter(Y_1[1, :], Y_1[2, :], xlims = (-5,5), ylims = (-5,5), legend = :topright, label = L"~N_1(\mu_1, \Sigma_1)", dpi = 300, color = :red, opacity = 0.2)
+	scatter!(Y_2[1, :], Y_2[2, :], label = L"~N_2(\mu_2, \Sigma_2)", color = :blue, opacity = 0.2)
+end
+
+# ╔═╡ 6cc13797-dfa0-4c32-bac3-cc56f8374b6d
+begin
+	XX_N = hcat(Y_1, Y_2)
+	yy_N = vcat(ones(size(Y_1)[2]), -1 .* ones(size(Y_2)[2]))'
+	combined_data = vcat(XX_N, yy_N)
+	# Shuffle the combined data
+	shuffled_data = combined_data[:, shuffle(1:size(combined_data, 2))]
+
+	X_N = shuffled_data[1:2, :]
+	X_N = Matrix(X_N')
+	y_N = categorical(shuffled_data[3, :])
+	train_N, test_N = partition(eachindex(y_N), 0.7)
+end
+
+# ╔═╡ 878c91c7-8e4a-42e5-812b-9ac50fb671b8
+begin
+	model_N = kNNClassifier(K=5)
+	mach_N = machine(model_N, X_N, y_N)
+	mach_N = fit!(mach_N; rows=train_N)
+	
+	ŷ_test_N = mode.(predict(mach_N, X_N[test_N, :]))
+	y_test_N = y_N[test_N];
+end
+
+# ╔═╡ 4533a1bb-af52-4ae2-9126-ca97a780162f
+begin
+	# Define a function for the single point prediction
+	function predict_single_point(mach, point)
+	    X_point = reshape(point, 1, length(point))  # Reshape the point to be a row vector
+	    ŷ_point = mode.(predict(mach, X_point))
+	    return ŷ_point
+	end
+	
+	point_to_infer = [2.5, 2.5]
+	# Perform inference on the single point
+	ŷ_point = predict_single_point(mach_N, point_to_infer)
+	int(ŷ_point, type=Int)
+end
+
+# ╔═╡ 8f3ff2fc-ab3e-41b0-b92e-4438591f43fd
+begin
+	test_data_final = hcat(X_N[test_N, :], int.(y_test_N, type=Int))
+	predict_data_final =  hcat(X_N[test_N, :], int.(ŷ_test_N, type=Int))
+
+    gauss_1_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 1]
+	gauss_1_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 1]
+
+	gauss_2_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 2]
+	gauss_2_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 2]
+
+	
+	scatter(gauss_1_x, gauss_1_y, ylims = (-5,5))
+	scatter!(gauss_2_x, gauss_2_y)
+
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 NearestNeighborModels = "636a865e-7cf4-491e-846c-de09b730eb36"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
+CategoricalArrays = "~0.10.8"
 DataFrames = "~1.6.1"
+Distributions = "~0.25.107"
+LaTeXStrings = "~1.3.1"
 MLJ = "~0.20.2"
 NearestNeighborModels = "~0.2.3"
 Plots = "~1.40.1"
@@ -92,7 +210,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "7746e0a591ae60b919fffbd5811682567b83f09c"
+project_hash = "8711fcbfacf67f4f1137d977ec8fbc2e7db18e97"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -1872,6 +1990,7 @@ version = "1.4.1+1"
 # ╠═af484490-0556-11ef-3473-830020f112d0
 # ╟─1a59eb2b-b0cb-4825-901b-ac9fca93f91a
 # ╠═c77ddd1d-b7a4-4392-bc3b-7b0e03e22be7
+# ╠═34551733-2494-43aa-af6c-dd25f256ea3f
 # ╠═7832ba69-35e4-4295-9bd8-cfaa48034257
 # ╠═f5f3d536-3115-4e2b-a678-93eca744416e
 # ╠═5c51d465-e64f-4260-bfcb-75733184a948
@@ -1880,5 +1999,14 @@ version = "1.4.1+1"
 # ╠═90b32741-6d80-4292-8c9f-81ce97103265
 # ╠═1981f29d-7b1e-4e17-9b64-fee035ed7b07
 # ╠═0c377581-b8e9-4f72-8fa3-830ea034c181
+# ╠═1cb3093e-0727-46b7-8cef-c796a02720ab
+# ╠═2c21266f-7438-4706-a5ae-99c8c9680185
+# ╠═3b224c48-93f9-46c3-b4ff-bf089250ef8f
+# ╟─ac58bae2-2946-4462-890f-3c182f6ec56f
+# ╠═ca891290-d07f-4bde-9388-4a08c2096787
+# ╠═6cc13797-dfa0-4c32-bac3-cc56f8374b6d
+# ╠═878c91c7-8e4a-42e5-812b-9ac50fb671b8
+# ╠═4533a1bb-af52-4ae2-9126-ca97a780162f
+# ╠═8f3ff2fc-ab3e-41b0-b92e-4438591f43fd
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
