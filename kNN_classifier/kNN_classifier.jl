@@ -87,21 +87,22 @@ end
 
 # ╔═╡ 2c21266f-7438-4706-a5ae-99c8c9680185
 begin
-	num = @bind N Slider(10:10:10000, show_value=true);
-	mean_x_1 = @bind μ_x_1 Slider(-5:0.1:5, show_value=true);
-	mean_y_1 = @bind μ_y_1 Slider(-5:0.1:5, show_value=true);
-	mean_x_2 = @bind μ_x_2 Slider(-5:0.1:5, show_value=true);
-	mean_y_2 = @bind μ_y_2 Slider(-5:0.1:5, show_value=true);
+	num = @bind N Slider(10:5:1000, show_value=true, default = 100)
+	mean_x_1 = @bind μ_x_1 Slider(-5:0.1:5, show_value=true, default = -3)
+	mean_y_1 = @bind μ_y_1 Slider(-5:0.1:5, show_value=true, default = -3)
+	mean_x_2 = @bind μ_x_2 Slider(-5:0.1:5, show_value=true, default = 3)
+	mean_y_2 = @bind μ_y_2 Slider(-5:0.1:5, show_value=true, default = 3)
+	nN_val = @bind nN Slider(1:15, show_value=true);
 end;
 
 # ╔═╡ 3b224c48-93f9-46c3-b4ff-bf089250ef8f
 begin
 	mean_1 = [μ_x_1, μ_y_1]  # Mean of the Gaussian distribution
-	cov_1 = [1 0; 0 1]   # Covariance matrix
+	cov_1 = [1.5 0; 0 1.5]   # Covariance matrix
 	dist_1 = MvNormal(mean_1, cov_1) # Multivariate normal distribution
 
 	mean_2 = [μ_x_2, μ_y_2]  
-	cov_2 = [1 0; 0 1] 
+	cov_2 = [1.5 0; 0 1.5] 
 	dist_2 = MvNormal(mean_2, cov_2) 
 end
 
@@ -115,13 +116,17 @@ md"
 - mean $μ_y$ for $N_2$: $mean_y_2
 "
 
+# ╔═╡ 1caa5537-2108-4f13-8bfb-16d33121d4b3
+md"
+### kNN parameters
+- Number of nearest neighbors: $nN_val
+"
+
 # ╔═╡ ca891290-d07f-4bde-9388-4a08c2096787
 begin
 	Random.seed!(1234) 	
 	Y_1 = rand(dist_1, N)
 	Y_2 = rand(dist_2, N)
-	scatter(Y_1[1, :], Y_1[2, :], xlims = (-5,5), ylims = (-5,5), legend = :topright, label = L"~N_1(\mu_1, \Sigma_1)", dpi = 300, color = :red, opacity = 0.2)
-	scatter!(Y_2[1, :], Y_2[2, :], label = L"~N_2(\mu_2, \Sigma_2)", color = :blue, opacity = 0.2)
 end
 
 # ╔═╡ 6cc13797-dfa0-4c32-bac3-cc56f8374b6d
@@ -129,55 +134,75 @@ begin
 	XX_N = hcat(Y_1, Y_2)
 	yy_N = vcat(ones(size(Y_1)[2]), -1 .* ones(size(Y_2)[2]))'
 	combined_data = vcat(XX_N, yy_N)
-	# Shuffle the combined data
-	shuffled_data = combined_data[:, shuffle(1:size(combined_data, 2))]
 
-	X_N = shuffled_data[1:2, :]
-	X_N = Matrix(X_N')
-	y_N = categorical(shuffled_data[3, :])
-	train_N, test_N = partition(eachindex(y_N), 0.7)
-end
+	X_N = combined_data[1:2, :]'
+	y_N = categorical(combined_data[3, :])
+	train_N = eachindex(y_N)
+end;
 
 # ╔═╡ 878c91c7-8e4a-42e5-812b-9ac50fb671b8
 begin
-	model_N = kNNClassifier(K=5)
-	mach_N = machine(model_N, X_N, y_N)
+	model_N = kNNClassifier(K=nN)
+	mach_N = machine(model_N, X_N, y_N, scitype_check_level=0)
 	mach_N = fit!(mach_N; rows=train_N)
-	
-	ŷ_test_N = mode.(predict(mach_N, X_N[test_N, :]))
-	y_test_N = y_N[test_N];
 end
 
 # ╔═╡ 4533a1bb-af52-4ae2-9126-ca97a780162f
-begin
-	# Define a function for the single point prediction
-	function predict_single_point(mach, point)
-	    X_point = reshape(point, 1, length(point))  # Reshape the point to be a row vector
-	    ŷ_point = mode.(predict(mach, X_point))
-	    return ŷ_point
-	end
-	
-	point_to_infer = [2.5, 2.5]
-	# Perform inference on the single point
-	ŷ_point = predict_single_point(mach_N, point_to_infer)
-	int(ŷ_point, type=Int)
+function predict_single_point(mach, point)
+	X_point = reshape(point, 1, length(point))  # Reshape the point to be a row vector
+	ŷ_point = mode.(predict(mach, X_point))
+	return ŷ_point
 end
 
 # ╔═╡ 8f3ff2fc-ab3e-41b0-b92e-4438591f43fd
-begin
-	test_data_final = hcat(X_N[test_N, :], int.(y_test_N, type=Int))
-	predict_data_final =  hcat(X_N[test_N, :], int.(ŷ_test_N, type=Int))
+# begin
+# 	test_data_final = hcat(X_N[test_N, :], int.(y_test_N, type=Int))
+# 	predict_data_final =  hcat(X_N[test_N, :], int.(ŷ_test_N, type=Int))
 
-    gauss_1_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 1]
-	gauss_1_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 1]
+#     gauss_1_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 1]
+# 	gauss_1_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 1]
 
-	gauss_2_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 2]
-	gauss_2_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 2]
+# 	gauss_2_x =[predict_data_final[i, 1] for i in 1:1098 if predict_data_final[i, 3] == 2]
+# 	gauss_2_y =[predict_data_final[i, 2] for i in 1:1098 if predict_data_final[i, 3] == 2]
 
 	
-	scatter(gauss_1_x, gauss_1_y, ylims = (-5,5))
-	scatter!(gauss_2_x, gauss_2_y)
+# 	scatter(gauss_1_x, gauss_1_y, ylims = (-5,5))
+# 	scatter!(gauss_2_x, gauss_2_y)
 
+# end
+
+# ╔═╡ cbcab8d4-0b7b-4a94-b75b-38e21e1e4c0c
+# function linear_classifier(x, y) # for testing
+# 	    return x + y > 0 ? 1 : 2
+# end
+
+# ╔═╡ 5b1ca6da-e89f-471d-b9c2-33fd1c3d8e04
+begin
+	# Generate a grid of points
+	x_range = -5:0.01:5
+	y_range = -5:0.01:5
+	
+	# Allocate memory for storing classifications
+	class_map = zeros(length(y_range), length(x_range))
+end;
+
+# ╔═╡ 6d7d85d4-a928-4931-8d67-51ed6e324075
+begin
+	
+	# Evaluate classifier at each point
+	for (j, y) in enumerate(y_range)
+	    for (i, x) in enumerate(x_range)
+			val = int(mode(predict_single_point(mach_N, [x, y])), type = Int)
+	        class_map[i, j] = val
+	    end
+	end
+	
+	cmap = [colorant"blue", colorant"red"]
+	
+	# Plot the grid with classifications
+	heatmap(x_range, y_range, class_map', color=cmap , opacity = 0.3, colorbar=false, ticks = false, size = (500, 500), title = "Decision boundary kNN classifier", xlabel = "N = $nN")
+	scatter!(Y_1[1, :], Y_1[2, :], xlims = (-5,5), ylims = (-5,5), legend = :topright, label = L"\sim N_1(\mu_1, \Sigma_1)", dpi = 300, color = :red, opacity = 0.3)
+	scatter!(Y_2[1, :], Y_2[2, :], label = L"\sim N_2(\mu_2, \Sigma_2)", color = :blue, opacity = 0.3)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2000,13 +2025,17 @@ version = "1.4.1+1"
 # ╠═1981f29d-7b1e-4e17-9b64-fee035ed7b07
 # ╠═0c377581-b8e9-4f72-8fa3-830ea034c181
 # ╠═1cb3093e-0727-46b7-8cef-c796a02720ab
-# ╠═2c21266f-7438-4706-a5ae-99c8c9680185
+# ╟─2c21266f-7438-4706-a5ae-99c8c9680185
 # ╠═3b224c48-93f9-46c3-b4ff-bf089250ef8f
 # ╟─ac58bae2-2946-4462-890f-3c182f6ec56f
-# ╠═ca891290-d07f-4bde-9388-4a08c2096787
-# ╠═6cc13797-dfa0-4c32-bac3-cc56f8374b6d
-# ╠═878c91c7-8e4a-42e5-812b-9ac50fb671b8
-# ╠═4533a1bb-af52-4ae2-9126-ca97a780162f
-# ╠═8f3ff2fc-ab3e-41b0-b92e-4438591f43fd
+# ╟─1caa5537-2108-4f13-8bfb-16d33121d4b3
+# ╟─ca891290-d07f-4bde-9388-4a08c2096787
+# ╟─6cc13797-dfa0-4c32-bac3-cc56f8374b6d
+# ╟─878c91c7-8e4a-42e5-812b-9ac50fb671b8
+# ╟─4533a1bb-af52-4ae2-9126-ca97a780162f
+# ╟─8f3ff2fc-ab3e-41b0-b92e-4438591f43fd
+# ╟─cbcab8d4-0b7b-4a94-b75b-38e21e1e4c0c
+# ╟─5b1ca6da-e89f-471d-b9c2-33fd1c3d8e04
+# ╟─6d7d85d4-a928-4931-8d67-51ed6e324075
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

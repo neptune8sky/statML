@@ -6,7 +6,7 @@ Below you will find an index of the models implemented in this repository, compl
 
 | Model Name               | Category              | Python Code                                  | Julia Code                                   |
 |--------------------------|-----------------------|----------------------------------------------|----------------------------------------------|
-| k-Nearest Neighbors      | Classification        | ❌ | [📊](https://github.com/neptune8sky/statML/blob/main/kNN_classifier.jl) |
+| k-Nearest Neighbors      | Classification        | ❌ | [📊](https://github.com/neptune8sky/statML/blob/main/kNN_classifier/kNN_classifier.jl) |
 | Linear Least Squares     | Regression            | ❌ | ❌ |
 | Ridge Regression         | Regression            | ❌ | ❌ |
 | Lasso                    | Regression            | ❌ | ❌ |
